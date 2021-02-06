@@ -42,14 +42,44 @@ defmodule Ecto.Preloader do
   alias Ecto.Query.Builder.{Join, Preload}
 
   defmacro preload_join(query, association) do
-    expr = quote do: assoc(l, unquote(association))
+
     binding = quote do: [l]
+    expr = quote do: assoc(l, unquote(association))
+
     preload_bindings = quote do: [{unquote(association), x}]
     preload_expr = quote do: [{unquote(association), x}]
 
+    do_preload_join(query, association, binding, expr, preload_bindings, preload_expr, __CALLER__)
+  end
+
+  defmacro preload_join(query, via_association, association) do
+
+    binding = quote do: [r, {unquote(via_association), l}]
+    expr = quote do: assoc(l, unquote(association))
+
+    preload_bindings = quote do: []
+    preload_expr = quote do: [{unquote(via_association), unquote(association)}]
+
+    do_preload_join(query, association, binding, expr, preload_bindings, preload_expr, __CALLER__)
+  end
+
+  defmacro preload_join(query, via_association_a, via_association_b, association) do
+
+    binding = quote do: [r, {unquote(via_association_a), a}, {unquote(via_association_b), b}]
+    expr = quote do: assoc(b, unquote(association))
+
+    # TODO: use bindings to avoid extra queries for preloads
+    preload_bindings = quote do: []
+    preload_expr = quote do: [{unquote(via_association_a), [{unquote(via_association_b), [unquote(association)]}]}]
+
+    do_preload_join(query, association, binding, expr, preload_bindings, preload_expr, __CALLER__)
+  end
+
+  defp do_preload_join(query, association, binding, expr, preload_bindings, preload_expr, caller) do
+
     query
-    |> Join.build(:left, binding, expr, nil, nil, association, nil, nil, __CALLER__)
+    |> Join.build(:left, binding, expr, nil, nil, association, nil, nil, caller)
     |> elem(0)
-    |> Preload.build(preload_bindings, preload_expr, __CALLER__)
+    |> Preload.build(preload_bindings, preload_expr, caller)
   end
 end
